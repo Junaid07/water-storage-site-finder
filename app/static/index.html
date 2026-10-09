@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Water Storage Site Finder</title>
+<link rel="stylesheet" href="/static/vendor/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M3 24 L11 8 L16 16 L21 8 L29 24 Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M6 24 Q16 18 26 24" fill="none" stroke="#2f8fd8" stroke-width="2.4"/></svg>
+    <div><b>Water Storage Site Finder</b><span>Open-data screening for dams &amp; water harvesting</span></div>
+  </div>
+  <div class="topright">
+    <div class="seg dark" id="unitSeg" role="radiogroup" aria-label="Units">
+      <button data-units="metric" class="on">Metric</button>
+      <button data-units="imperial">Imperial</button>
+    </div>
+    <div class="search">
+      <div class="sbox">
+        <input id="coord" placeholder="Search a place, or lat, lon (e.g. 33.72, 73.05)" aria-label="Search a place or enter coordinates" autocomplete="off">
+        <ul id="geoList" class="geolist hidden" role="listbox"></ul>
+      </div>
+      <button id="goto" class="ghost" title="Find">Go</button>
+      <button id="myLoc" class="ghost" title="Use my current location" aria-label="Use my current location">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel" id="panel">
+    <section class="card controls">
+      <div class="field">
+        <label>Scheme type</label>
+        <div class="seg" id="modeSeg" role="radiogroup">
+          <button data-mode="dam" class="on">Storage dam</button>
+          <button data-mode="harvest">Water harvesting</button>
+        </div>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab on" data-tab="site" role="tab">Single site</button>
+        <button class="tab" data-tab="area" role="tab">Search an area</button>
+      </div>
+
+      <div id="tab-site">
+        <p class="hint">Click on the map on or near a stream, type coordinates or a place name in the search box at the top, or use the ◎ button for your current location. The site snaps to the nearest channel and its whole catchment is analysed.</p>
+        <details class="adv">
+          <summary>Advanced</summary>
+          <div class="field">
+            <label for="snap">Snap to a stream within (m)</label>
+            <input id="snap" type="number" placeholder="auto (500 dam / 200 harvesting)" min="30" max="3000" step="10">
+          </div>
+        </details>
+        <div class="picked" id="picked">No location selected</div>
+        <div class="field">
+          <label for="siteName">Site name (optional, shown on the report)</label>
+          <input id="siteName" type="text" maxlength="80" placeholder="e.g. Trotta Banh nullah dam">
+        </div>
+        <button id="run" class="primary" disabled>Run screening</button>
+      </div>
+
+      <div id="tab-area" class="hidden">
+        <p class="hint">Draw an area on the map or upload a boundary. Water Storage Site Finder scans every stream inside it and ranks the best places for a dam or water-harvesting structure. Open any site for the full screening and PDF.</p>
+        <div class="btnrow">
+          <button class="small" id="drawPoly">✏️ Draw polygon</button>
+          <button class="small" id="drawRect">▭ Draw rectangle</button>
+          <label class="small filebtn">⬆ Upload boundary
+            <input id="aoiFile" type="file" multiple accept=".zip,.shp,.shx,.dbf,.prj,.cpg,.geojson,.json,.kml,.kmz" hidden>
+          </label>
+          <button class="small" id="clearAoi">Clear</button>
+        </div>
+        <div class="drawhelp hidden" id="drawHelp"></div>
+        <div class="note">Upload: zipped shapefile (.zip), or the .shp + .shx + .dbf + .prj files together, GeoJSON, or KML/KMZ. Maximum <span id="maxAoi">3,000</span> km².
+          <span id="publicNote" class="hidden">Larger areas (up to 3,000 km²) work when you run the tool on your own computer.</span></div>
+        <div class="picked" id="aoiInfo">No area selected</div>
+        <div class="field">
+          <label for="areaName">Area name (optional)</label>
+          <input id="areaName" type="text" maxlength="60" placeholder="e.g. Soan catchment, Chakwal">
+        </div>
+        <button id="runArea" class="primary" disabled>Find potential sites</button>
+      </div>
+
+      <div class="progress hidden" id="progress"><div class="bar"><i id="pbar"></i></div><span id="pmsg">Starting…</span></div>
+      <div class="error hidden" id="err"></div>
+    </section>
+    <div id="results"></div>
+    <footer class="credit">© 2026 Junaid Ahmad, PhD · <a href="#" id="aboutLink">About this tool</a></footer>
+  </aside>
+  <section class="mapwrap">
+    <div id="map"></div>
+    <div class="legend" id="legend">
+      <div><i class="sw" style="background:#e8792b"></i>Catchment</div>
+      <div><i class="sw ln" style="background:#2f8fd8"></i>Streams</div>
+      <div><i class="sw" style="background:#36c6f4"></i>Reservoir</div>
+      <div><i class="sw ln" style="background:#d62828"></i>Dam axis</div>
+      <div><i class="sw" style="background:#1d4ed8"></i>Water bodies</div>
+      <div id="rasterLegend"></div>
+    </div>
+  </section>
+</main>
+
+<div class="fsmodal hidden" id="aboutModal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+  <div class="aboutbox">
+    <div class="fshead"><b id="aboutTitle">About Water Storage Site Finder</b><span class="fshint"></span>
+      <button class="small" id="aboutClose" aria-label="Close">✕ Close</button></div>
+    <div class="aboutbody">
+      <p><b>Developed by Junaid Ahmad, PhD.</b> © 2026. <span id="aboutVer"></span></p>
+      <p>Water Storage Site Finder screens locations for <b>storage dams</b> and <b>water-harvesting structures</b>
+        anywhere in the world using open data only. For a point it traces the catchment, estimates rainfall, runoff,
+        floods, silt and evaporation, tests a range of dam heights, checks land cover, settlements, protected areas
+        and earthquakes, and gives a 0–100 feasibility score with a PDF report. It can also search a whole area and
+        rank the best sites.</p>
+      <h3>Data sources</h3>
+      <ul class="list">
+        <li>Terrain: Copernicus GLO-30 / GLO-90 DEM (ESA / Airbus)</li>
+        <li>Land cover: ESA WorldCover 2021; ESA CCI Land Cover 1992–2020; Impact Observatory / Esri 10 m annual maps</li>
+        <li>Surface water: JRC Global Surface Water (European Commission)</li>
+        <li>Rainfall &amp; evaporation: ERA5 via Open-Meteo; NASA POWER as backup</li>
+        <li>Soil: ISRIC SoilGrids · Earthquakes: USGS · Places, dams, protected areas &amp; place search: © OpenStreetMap contributors</li>
+      </ul>
+      <h3>Disclaimer</h3>
+      <p>This is a <b>screening</b> tool. Results come from global datasets of about 30 m resolution and simplified
+        methods; they are indicative only and do not replace topographic survey, geotechnical and geological
+        investigation, hydrological study or engineering design. The developer accepts no liability for decisions
+        made from these results.</p>
+      <h3>How to cite</h3>
+      <p class="cite">Ahmad, J. (2026). <i>Water Storage Site Finder</i> [software]. Open-data screening for dams
+        and water harvesting.</p>
+    </div>
+  </div>
+</div>
+
+<script src="/static/vendor/leaflet.js"></script>
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

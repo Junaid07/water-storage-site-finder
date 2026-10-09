@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: water-storage-site-finder
+    runtime: docker
+    plan: starter        # the free plan (512 MB) may run out of memory on large catchments
+    healthCheckPath: /api/health
+    envVars:
+      - key: DAMFINDER_WORKERS
+        value: "1"
+      - key: DAMFINDER_PUBLIC
+        value: "1"

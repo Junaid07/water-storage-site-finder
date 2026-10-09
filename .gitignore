@@ -1,0 +1,9 @@
+.venv/
+cache/
+versions/
+public_release/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.pdf
+.env

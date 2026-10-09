@@ -1,0 +1,9 @@
+.venv
+cache
+__pycache__
+*.pyc
+.git
+.github
+versions
+public_release
+.pytest_cache
